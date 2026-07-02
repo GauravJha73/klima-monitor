@@ -1,0 +1,54 @@
+name: Klima Stock Monitor
+
+# WHEN it runs:
+on:
+  schedule:
+    # Every 15 minutes. (GitHub may run it a little late during busy times —
+    # that's normal. Don't set this lower or MediaMarkt may block you.)
+    - cron: "*/15 * * * *"
+  workflow_dispatch:   # also adds a manual "Run workflow" button you can click
+
+# Allow the job to save the "last known status" back into the repo,
+# so you only get ONE alert when it flips to available (not one every run).
+permissions:
+  contents: write
+
+# Never run two checks at the same time.
+concurrency:
+  group: klima-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests pyyaml
+
+      - name: Run the stock check
+        env:
+          # These come from your GitHub "Secrets" (set up in the guide) —
+          # your token is never written into the code.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python monitor.py --config config-koenic-cloud.yaml --once
+
+      - name: Remember the status for next time
+        run: |
+          if [[ -n "$(git status --porcelain state.json)" ]]; then
+            git config user.name "klima-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add state.json
+            git commit -m "update stock state"
+            git push
+          else
+            echo "No status change — nothing to save."
+          fi
