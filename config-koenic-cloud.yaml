@@ -1,0 +1,31 @@
+# =====================================================================
+#  klima-monitor — CLOUD config (for GitHub Actions)
+#  Product: Koenic KTFC 806022 2in1 Luftkühler/Turmventilator (ID 2763177)
+#
+#  NOTE: your Telegram bot_token and chat_id are NOT in this file on purpose.
+#  In the cloud they come from GitHub "Secrets" as environment variables,
+#  so your token stays private even if the repo is public.
+# =====================================================================
+
+interval_minutes: 15   # (not used in cloud --once mode; the schedule controls timing)
+
+targets:
+
+  - name: "MediaMarkt — Koenic KTFC 806022 Luftkühler/Turmventilator"
+    mode: html
+    url: "https://www.mediamarkt.de/de/product/_koenic-ktfc-806022-2in1-luftkuhler-und-turmventilator-weisssilber-80-watt-2763177.html"
+    unavailable_markers:
+      - "bald wieder verfügbar"          # "available again soon" banner
+      - "leider keine lieferung"         # delivery not possible
+      - "leider keine marktabholung"     # store pickup not possible
+    page_valid_marker: "2763177"         # confirms we loaded the real page
+    link: "https://www.mediamarkt.de/de/product/_koenic-ktfc-806022-2in1-luftkuhler-und-turmventilator-weisssilber-80-watt-2763177.html"
+    headers:
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+
+notifications:
+  telegram:
+    enabled: true
+    # bot_token and chat_id intentionally omitted — supplied via GitHub Secrets.
+  email:
+    enabled: false
