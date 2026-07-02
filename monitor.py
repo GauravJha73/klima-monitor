@@ -37,14 +37,42 @@ except ImportError:
 STATE_FILE = Path(__file__).parent / "state.json"
 CONFIG_FILE = Path(__file__).parent / "config.yaml"
 
-# A normal browser-looking header set. Be polite: don't poll faster than needed.
+# A fuller set of real-Chrome-looking headers. Some shops (MediaMarkt) reject
+# bare requests; this improves the odds of getting through. Be polite anyway.
 DEFAULT_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
     ),
-    "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,image/apng,*/*;q=0.8"
+    ),
+    "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "sec-ch-ua": '"Chromium";v="126", "Google Chrome";v="126", "Not.A/Brand";v="24"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
 }
+
+
+def http_get(url, headers, timeout=25, retries=3):
+    """GET with a couple of retries on 403/429/5xx (with a short backoff)."""
+    last = None
+    for attempt in range(retries):
+        resp = requests.get(url, headers=headers, timeout=timeout)
+        if resp.status_code in (403, 429, 500, 502, 503):
+            last = resp
+            time.sleep(3 * (attempt + 1))   # 3s, 6s, 9s
+            continue
+        return resp
+    # All retries exhausted — return the last (blocked) response so the caller
+    # can raise a clear error instead of pretending the page loaded.
+    return last
 
 
 # --------------------------------------------------------------------------- #
@@ -121,7 +149,7 @@ def check_html(target: dict) -> bool:
                                positive marker can cause false alarms.
     """
     headers = {**DEFAULT_HEADERS, **target.get("headers", {})}
-    resp = requests.get(target["url"], headers=headers, timeout=20)
+    resp = http_get(target["url"], headers=headers)
     resp.raise_for_status()
     html = resp.text.lower()
 
